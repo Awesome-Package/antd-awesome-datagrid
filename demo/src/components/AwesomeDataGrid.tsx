@@ -1,6 +1,15 @@
-// @ts-nocheck
-import type { TableColumnsType, TableProps, TableColumnType } from "antd/lib";
+import type { TableProps, GetRef } from "antd/lib";
+import React, { PropsWithChildren, useMemo, useState, useRef } from "react";
 import {
+  CloudDownloadOutlined,
+  PlusOutlined,
+  SyncOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+} from "@ant-design/icons";
+import {
+  Divider,
+  Input,
   Button,
   Card,
   Col,
@@ -8,26 +17,10 @@ import {
   Row,
   Space,
   Table,
-  Select,
   Tag,
-  Input,
   Typography,
-} from "antd/lib";
-import React, { useState } from "react";
-import {
-  SearchOutlined,
-  CloudDownloadOutlined,
-  PlusOutlined,
-  SyncOutlined,
-  ReloadOutlined,
-} from "@ant-design/icons";
-import { Divider } from "antd";
-
-type OnChange = NonNullable<TableProps<DataType>["onChange"]>;
-type Filters = Parameters<OnChange>[1];
-
-type GetSingle<T> = T extends (infer U)[] ? U : never;
-type Sorts = GetSingle<Parameters<OnChange>[2]>;
+} from "antd";
+import { v4 as uuidv4 } from "uuid";
 
 interface DataType {
   key: string;
@@ -37,64 +30,74 @@ interface DataType {
 }
 
 interface AwesomeDataGridProps {
-  overview?: {
+  overview?: Array<{
     title: string;
     value: string;
-  };
-  tableProps: TableBaseProps<any>;
+  }>;
+  tableProps: TableProps<any>;
 }
 
 const AwesomeDataGrid = ({
   children,
   overview,
   tableProps,
-}: AwesomeDataGridProps) => {
-  const [filteredInfo, setFilteredInfo] = useState<Filters>({});
-  const [sortedInfo, setSortedInfo] = useState<Sorts>({});
+}: PropsWithChildren<AwesomeDataGridProps>) => {
+  const { onChange, columns, ...restTableProps } = tableProps;
 
-  function getTitleByKey(filter) {
-    const columns = tableProps.columns;
-    const keys = Object.keys(filter);
-    const values = Object.values(filter);
+  const [changedCol, setChangedCol] = useState<Array<any>>([]);
+  const [filteredCol, setFilteredCol] = useState<any>({});
+  const [sortedCol, setSortedCol] = useState<any>({});
 
-    if (!columns?.length || !keys?.length) return [];
+  const handleChange: NonNullable<TableProps<DataType>["onChange"]> = (
+    pagination,
+    filters,
+    sorter: any
+  ) => {
+    setFilteredCol(filters);
+    setSortedCol(sorter);
 
-    const titles = columns.map((e) => ({ title: e?.title, key: e?.key }));
+    const sorterItem = sorter.column
+      ? { title: sorter.column.title, value: [sorter.order] }
+      : undefined;
 
-    const t = [];
-    keys.forEach((key, index) => {
-      const item = titles.find((e) => e.key === key);
-      t.push({ title: item.title, value: values[index] });
+    const filterItems = Object.keys(filters).map((key) => {
+      const columnFiltered: any = tableProps?.columns?.find(
+        (e) => e.key === key
+      );
+
+      // filter item
+      if (columnFiltered?.filters?.length) {
+        const value = filters[key]?.map((e) => {
+          return columnFiltered.filters.find(
+            (filter: any) => filter.value === e
+          )?.text;
+        });
+
+        return value
+          ? {
+              title: columnFiltered.title,
+              value: value,
+            }
+          : undefined;
+      }
+      // search item
+      return filters[key]
+        ? {
+            title: columnFiltered.title,
+            value: filters[key],
+          }
+        : undefined;
     });
 
-    return t;
-  }
+    setChangedCol([sorterItem, ...filterItems].filter((e) => !!e));
 
-  const handleChange: OnChange = (pagination, filters, sorter) => {
-    console.log("Various parameters", pagination, filters, sorter);
+    console.log(
+      "debug local state: ",
+      [sorterItem, ...filterItems].filter((e) => !!e)
+    );
 
-    setFilteredInfo(filters);
-    setSortedInfo(sorter as Sorts);
-  };
-
-  const clearFilters = () => {
-    setFilteredInfo({});
-  };
-
-  const clearAll = () => {
-    setFilteredInfo({});
-    setSortedInfo({});
-  };
-
-  const setAgeSort = () => {
-    setSortedInfo({
-      order: "descend",
-      columnKey: "age",
-    });
-  };
-
-  const onSearch = (newValue: string) => {
-    console.log(newValue);
+    // @ts-ignore
+    onChange?.(pagination, filters, sorter);
   };
 
   return (
@@ -112,67 +115,49 @@ const AwesomeDataGrid = ({
       style={{ marginTop: 20 }}
     >
       <Row style={{ marginBottom: 20 }} gutter={[16, 16]}>
-        <Col span={12}>
-          <Card
-            title="Filter"
-            extra={
-              <Button type="primary" icon={<SyncOutlined />}>
-                Reset
-              </Button>
-            }
-          >
-            <Row gutter={[16, 16]}>
-              <Col span={24}>{children}</Col>
-              {children ? <Divider /> : null}
-              {getTitleByKey(filteredInfo)?.length
-                ? getTitleByKey(filteredInfo).map((e) => (
-                    <Col key={e.title} span={24}>
-                      <Typography.Text strong>{e.title}: </Typography.Text>
-                      {e?.value?.length >1 ? (
-                        <>
-                          {tableProps.columns
-                            .find((f) => f.title === e.title)
-                            ?.filters?.map((item) => (
-                              <Tag key={item.value}>{item.text}</Tag>
-                            ))}
-                        </>
-                      ) : !e?.value?.length ? null : (
-                        <Tag>{e.value[0]}</Tag>
-                      )}
+        {children || changedCol.length ? (
+          <Col span={12}>
+            <Card
+              title="Filter"
+              // extra={
+              //   <Button
+              //     type="primary"
+              //     icon={<SyncOutlined />}
+              //     onClick={() => {
+              //       setChangedCol([]);
+              //       setFilteredCol({});
+              //       setSortedCol({});
+              //     }}
+              //   >
+              //     Reset
+              //   </Button>
+              // }
+            >
+              <Row gutter={[16, 16]}>
+                <Col span={24}>
+                  {children ? (
+                    <>
+                      {children}
+                      <Divider />
+                    </>
+                  ) : null}
+                </Col>
+                {changedCol.map((item) =>
+                  item?.value?.length ? (
+                    <Col span={24} key={uuidv4()}>
+                      <Typography.Text strong>{item.title}: </Typography.Text>
+                      {item.value.map((e: string) => (
+                        <Tag key={uuidv4()}>{e}</Tag>
+                      ))}
                     </Col>
-                  ))
-                : null}
-              {/* <Col span={24}>
-                <Typography.Text strong>Created at: </Typography.Text>
-                <Tag>12/12/2023 - 12/12/2024</Tag>
-              </Col>
-              <Col span={24}>
-                <Typography.Text strong>Cities: </Typography.Text>
-                {[
-                  { text: "London", value: "L" },
-                  { text: "New York", value: "N" },
-                ]
-                  .filter((e) => filteredInfo?.address?.includes(e.value))
-                  .map((e) => (
-                    <Tag key={e.value}>{e.text}</Tag>
-                  ))}
-              </Col>
-              <Col span={24}>
-                <Typography.Text strong>Status: </Typography.Text>
-                <Tag>ACTIVE</Tag>
-                <Tag>POSTED</Tag>
-              </Col>
-              <Col span={24}>
-                <Typography.Text strong>Searching by phone: </Typography.Text>
-                <Tag>0123456789</Tag>
-              </Col>
-              <Col span={24}>
-                <Typography.Text strong>Sorting by name: </Typography.Text>
-                <Tag>Desc</Tag>
-              </Col> */}
-            </Row>
-          </Card>
-        </Col>
+                  ) : (
+                    <></>
+                  )
+                )}
+              </Row>
+            </Card>
+          </Col>
+        ) : null}
         {overview?.length ? (
           <Col span={12}>
             <Card title="Overview">
@@ -185,7 +170,6 @@ const AwesomeDataGrid = ({
                         value={e?.value}
                         precision={2}
                         valueStyle={{ color: "#3f8600" }}
-                        suffix="%"
                       />
                     </Card>
                   </Col>
@@ -195,7 +179,12 @@ const AwesomeDataGrid = ({
           </Col>
         ) : null}
       </Row>
-      <Table size="large" onChange={handleChange} {...tableProps} />
+      <Table
+        size="large"
+        onChange={handleChange}
+        columns={columns}
+        {...restTableProps}
+      />
     </Card>
   );
 };

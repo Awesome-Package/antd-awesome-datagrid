@@ -1,13 +1,8 @@
 // @ts-nocheck
 import React from "react";
 import AwesomeDataGrid from "./components/AwesomeDataGrid";
-import {
-  SearchOutlined,
-  CloudDownloadOutlined,
-  PlusOutlined,
-  SyncOutlined,
-  ReloadOutlined,
-} from "@ant-design/icons";
+// import T from "./components/T";
+import { SearchOutlined } from "@ant-design/icons";
 import { Input } from "antd";
 
 type OnChange = NonNullable<TableProps<DataType>["onChange"]>;
@@ -101,7 +96,7 @@ const data: DataType[] = [
 const App: React.FC = () => {
   const columns: any = [
     {
-      colType: "",
+      // colType: "search",
       title: "Name",
       dataIndex: "name",
       key: "name",
@@ -111,17 +106,16 @@ const App: React.FC = () => {
         <div style={{ padding: 16 }} onKeyDown={(e) => e.stopPropagation()}>
           <Input.Search
             value={selectedKeys[0]}
-            onChange={(e) =>
-              setSelectedKeys(e.target.value ? [e.target.value] : [])
-            }
-            placeholder="input search text"
-            // onSearch={(e) => onSearch(e)}
+            onChange={(e) => {
+              setSelectedKeys(e.target.value ? [e.target.value] : []);
+            }}
+            placeholder="Fill and Enter"
+            onSearch={() => {
+              confirm();
+            }}
             enterButton
-            allowClear
-            onPressEnter={(e) => {
-              confirm(); // (close dropdown)
-              // setSelectedKeys(e.target.value);
-              // onSearch(e.target.value);
+            onPressEnter={() => {
+              confirm();
             }}
           />
         </div>
@@ -129,8 +123,6 @@ const App: React.FC = () => {
       filterIcon: (filtered: boolean) => (
         <SearchOutlined style={{ color: filtered ? "#1677ff" : undefined }} />
       ),
-      render: (text) => text,
-      // ...getColumnSearchProps("name"),
     },
     {
       title: "Age",
@@ -176,6 +168,7 @@ const App: React.FC = () => {
         >
           {/* Test */}
         </AwesomeDataGrid>
+        {/* <T></T> */}
       </div>
     </div>
   );
